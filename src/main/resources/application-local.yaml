@@ -6,7 +6,10 @@ spring:
 logging:
   level:
     root: INFO
-    com.yesh6.agenticshortener: DEBUG
+    com.yeshwanthk.agentic_url_shortener: DEBUG
 
 server:
   port: 8082
+
+app:
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8082}
