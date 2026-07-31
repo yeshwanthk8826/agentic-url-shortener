@@ -3,6 +3,7 @@ package com.yeshwanthk.agentic_url_shortener.exception;
 import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencyConflictException;
 import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencyInProgressException;
 import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencySerializationException;
+import com.yeshwanthk.agentic_url_shortener.orchestration.exception.WorkflowNotFoundException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.InvalidUrlException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.ShortCodeGenerationException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.ShortUrlNotFoundException;
@@ -175,6 +176,20 @@ public class ApiExceptionHandler {
                 "Idempotency processing failed",
                 "The idempotent response could not be processed",
                 "urn:problem:idempotency-processing",
+                request
+        );
+    }
+
+    @ExceptionHandler(WorkflowNotFoundException.class)
+    public ProblemDetail handleWorkflowNotFound(
+            WorkflowNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return createProblem(
+                HttpStatus.NOT_FOUND,
+                "Workflow not found",
+                exception.getMessage(),
+                "urn:problem:workflow-not-found",
                 request
         );
     }
