@@ -3,11 +3,13 @@ package com.yeshwanthk.agentic_url_shortener.orchestration.service;
 import com.yeshwanthk.agentic_url_shortener.orchestration.domain.Workflow;
 import com.yeshwanthk.agentic_url_shortener.orchestration.domain.WorkflowNode;
 import com.yeshwanthk.agentic_url_shortener.orchestration.domain.WorkflowNodeStatus;
+import com.yeshwanthk.agentic_url_shortener.orchestration.dto.AuditEventResponse;
 import com.yeshwanthk.agentic_url_shortener.orchestration.dto.CompleteNodeRequest;
 import com.yeshwanthk.agentic_url_shortener.orchestration.dto.CreateWorkflowRequest;
 import com.yeshwanthk.agentic_url_shortener.orchestration.dto.WorkflowResponse;
 import com.yeshwanthk.agentic_url_shortener.orchestration.exception.WorkflowNotFoundException;
 import com.yeshwanthk.agentic_url_shortener.orchestration.repository.WorkflowDependencyRepository;
+import com.yeshwanthk.agentic_url_shortener.orchestration.repository.WorkflowGovernanceRepository;
 import com.yeshwanthk.agentic_url_shortener.orchestration.repository.WorkflowRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -27,22 +30,36 @@ public class WorkflowEngine {
     private final WorkflowDependencyRepository dependencyRepository;
     private final WorkflowPlanner planner;
     private final Clock clock;
+    private final WorkflowGovernanceRepository governanceRepository;
 
     public WorkflowEngine(
             WorkflowRepository workflowRepository,
             WorkflowDependencyRepository dependencyRepository,
             WorkflowPlanner planner,
-            Clock clock
+            Clock clock, WorkflowGovernanceRepository governanceRepository
     ) {
         this.workflowRepository = workflowRepository;
         this.dependencyRepository = dependencyRepository;
         this.planner = planner;
         this.clock = clock;
+        this.governanceRepository = governanceRepository;
     }
 
     @Transactional
     public WorkflowResponse create(CreateWorkflowRequest request) {
-        return WorkflowResponse.from(planner.create(request));
+        Workflow workflow = planner.create(request);
+        Instant now = clock.instant();
+
+        governanceRepository.audit(
+                workflow.getId(),
+                "WORKFLOW_CREATED",
+                "workflow-api",
+                "Workflow created for scenario "
+                        + request.scenarioType(),
+                now
+        );
+
+        return WorkflowResponse.from(workflow);
     }
 
     @Transactional(readOnly = true)
@@ -53,6 +70,7 @@ public class WorkflowEngine {
     @Transactional
     public WorkflowResponse advance(UUID workflowId) {
         Workflow workflow = load(workflowId);
+        workflow.ensureExecutable();
         unlockReadyNodes(workflow, clock.instant());
         return WorkflowResponse.from(workflowRepository.save(workflow));
     }
@@ -64,6 +82,7 @@ public class WorkflowEngine {
             CompleteNodeRequest request
     ) {
         Workflow workflow = load(workflowId);
+        workflow.ensureExecutable();
         Instant now = clock.instant();
 
         workflow.getNode(nodeKey).complete(request.output(), now);
@@ -78,6 +97,7 @@ public class WorkflowEngine {
             String changedNodeKey
     ) {
         Workflow workflow = load(workflowId);
+        workflow.ensureExecutable();
         Instant now = clock.instant();
 
         WorkflowNode changedNode = workflow.getNode(changedNodeKey);
@@ -132,6 +152,15 @@ public class WorkflowEngine {
                 continue;
             }
 
+            if (node.getStage()
+                    == com.yeshwanthk.agentic_url_shortener
+                    .orchestration.domain.WorkflowStage.RELEASE_READINESS
+                    && !governanceRepository.isReleaseApproved(
+                    workflow.getId()
+            )) {
+                continue;
+            }
+
             boolean prerequisitesComplete =
                     dependencyRepository
                             .findPrerequisiteIds(node.getId())
@@ -151,6 +180,69 @@ public class WorkflowEngine {
                 .allMatch(WorkflowNode::isCompleted)) {
             workflow.markCompleted(now);
         }
+    }
+
+    @Transactional
+    public WorkflowResponse approveRelease(
+            UUID workflowId,
+            String actor,
+            String reason
+    ) {
+        Workflow workflow = load(workflowId);
+        workflow.ensureExecutable();
+
+        Instant now = clock.instant();
+
+        governanceRepository.approveRelease(
+                workflowId,
+                actor,
+                reason,
+                now
+        );
+
+        governanceRepository.audit(
+                workflowId,
+                "RELEASE_APPROVED",
+                actor,
+                reason,
+                now
+        );
+
+        unlockReadyNodes(workflow, now);
+
+        return WorkflowResponse.from(
+                workflowRepository.save(workflow)
+        );
+    }
+
+    @Transactional
+    public WorkflowResponse safeStop(
+            UUID workflowId,
+            String actor,
+            String reason
+    ) {
+        Workflow workflow = load(workflowId);
+        Instant now = clock.instant();
+
+        workflow.safeStop(now);
+
+        governanceRepository.audit(
+                workflowId,
+                "WORKFLOW_SAFE_STOPPED",
+                actor,
+                reason,
+                now
+        );
+
+        return WorkflowResponse.from(
+                workflowRepository.save(workflow)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditEventResponse> auditEvents(UUID workflowId) {
+        load(workflowId);
+        return governanceRepository.findAuditEvents(workflowId);
     }
 
     private Workflow load(UUID workflowId) {

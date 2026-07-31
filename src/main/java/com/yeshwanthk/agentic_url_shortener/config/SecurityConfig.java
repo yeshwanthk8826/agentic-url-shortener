@@ -23,6 +23,7 @@ public class SecurityConfig {
                                 "/api/v1/urls/**",
                                 "/actuator/health",
                                 "/api/v1/workflows/**",
+                                "/api/v1/workflows/**",
                                 "/actuator/health/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/*").permitAll()

@@ -4,6 +4,7 @@ import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencyCon
 import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencyInProgressException;
 import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencySerializationException;
 import com.yeshwanthk.agentic_url_shortener.orchestration.exception.WorkflowNotFoundException;
+import com.yeshwanthk.agentic_url_shortener.orchestration.exception.WorkflowStateException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.InvalidUrlException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.ShortCodeGenerationException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.ShortUrlNotFoundException;
@@ -190,6 +191,20 @@ public class ApiExceptionHandler {
                 "Workflow not found",
                 exception.getMessage(),
                 "urn:problem:workflow-not-found",
+                request
+        );
+    }
+
+    @ExceptionHandler(WorkflowStateException.class)
+    public ProblemDetail handleWorkflowState(
+            WorkflowStateException exception,
+            HttpServletRequest request
+    ) {
+        return createProblem(
+                HttpStatus.CONFLICT,
+                "Workflow state conflict",
+                exception.getMessage(),
+                "urn:problem:workflow-state-conflict",
                 request
         );
     }

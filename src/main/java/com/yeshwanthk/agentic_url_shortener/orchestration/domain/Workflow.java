@@ -1,5 +1,6 @@
 package com.yeshwanthk.agentic_url_shortener.orchestration.domain;
 
+import com.yeshwanthk.agentic_url_shortener.orchestration.exception.WorkflowStateException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -124,6 +125,8 @@ public class Workflow {
     }
 
     public void markRunning(Instant instant) {
+        ensureExecutable();
+
         if (status == WorkflowStatus.PLANNED) {
             status = WorkflowStatus.RUNNING;
             updatedAt = instant;
@@ -204,5 +207,36 @@ public class Workflow {
         }
 
         return value.trim();
+    }
+
+    public void ensureExecutable() {
+        if (status == WorkflowStatus.SAFE_STOPPED) {
+            throw new WorkflowStateException(
+                    "Workflow is safe-stopped and cannot execute"
+            );
+        }
+
+        if (status == WorkflowStatus.COMPLETED) {
+            throw new WorkflowStateException(
+                    "Completed workflow cannot execute"
+            );
+        }
+
+        if (status == WorkflowStatus.FAILED) {
+            throw new WorkflowStateException(
+                    "Failed workflow cannot execute"
+            );
+        }
+    }
+
+    public void safeStop(Instant instant) {
+        if (status == WorkflowStatus.COMPLETED) {
+            throw new WorkflowStateException(
+                    "Completed workflow cannot be safe-stopped"
+            );
+        }
+
+        status = WorkflowStatus.SAFE_STOPPED;
+        updatedAt = instant;
     }
 }
