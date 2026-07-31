@@ -41,6 +41,15 @@ server:
 app:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:${SERVER_PORT:8080}}
 
+cache:
+  redirect:
+    maximum-size: ${REDIRECT_CACHE_MAXIMUM_SIZE:10000}
+    ttl: ${REDIRECT_CACHE_TTL:10m}
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"
+
 management:
   endpoints:
     web:
@@ -56,3 +65,6 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+
+    enable:
+      cache: true

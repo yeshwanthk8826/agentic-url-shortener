@@ -4,6 +4,7 @@ import com.yeshwanthk.agentic_url_shortener.idempotency.dto.IdempotentResult;
 import com.yeshwanthk.agentic_url_shortener.idempotency.service.IdempotentUrlCreationService;
 import com.yeshwanthk.agentic_url_shortener.url.dto.CreateShortUrlRequest;
 import com.yeshwanthk.agentic_url_shortener.url.dto.ShortUrlResponse;
+import com.yeshwanthk.agentic_url_shortener.url.dto.UrlAnalyticsResponse;
 import com.yeshwanthk.agentic_url_shortener.url.service.ShortUrlService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -82,5 +83,20 @@ public class ShortUrlController {
                 .status(HttpStatus.FOUND)
                 .location(destination)
                 .build();
+    }
+
+    @GetMapping("/api/v1/urls/{shortCode}/analytics")
+    public ResponseEntity<UrlAnalyticsResponse> analytics(
+            @PathVariable
+            @Pattern(
+                    regexp = SHORT_CODE_PATTERN,
+                    message =
+                            "Short code must contain exactly 8 Base62 characters"
+            )
+            String shortCode
+    ) {
+        return ResponseEntity.ok(
+                shortUrlService.analytics(shortCode)
+        );
     }
 }

@@ -46,6 +46,12 @@ public class ShortUrl {
     @Column(nullable = false)
     private long version;
 
+    @Column(name = "visit_count", nullable = false)
+    private long visitCount;
+
+    @Column(name = "last_accessed_at")
+    private Instant lastAccessedAt;
+
     protected ShortUrl() {
         // Required by JPA.
     }
@@ -132,5 +138,13 @@ public class ShortUrl {
 
     public long getVersion() {
         return version;
+    }
+
+    public long getVisitCount() {
+        return visitCount;
+    }
+
+    public Instant getLastAccessedAt() {
+        return lastAccessedAt;
     }
 }

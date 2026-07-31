@@ -3,6 +3,7 @@ package com.yeshwanthk.agentic_url_shortener.unit.url.controller;
 import com.yeshwanthk.agentic_url_shortener.config.SecurityConfig;
 import com.yeshwanthk.agentic_url_shortener.idempotency.dto.IdempotentResult;
 import com.yeshwanthk.agentic_url_shortener.idempotency.service.IdempotentUrlCreationService;
+import com.yeshwanthk.agentic_url_shortener.url.cache.RedirectCache;
 import tools.jackson.databind.ObjectMapper;
 import com.yeshwanthk.agentic_url_shortener.exception.ApiExceptionHandler;
 import com.yeshwanthk.agentic_url_shortener.url.controller.ShortUrlController;
@@ -51,6 +52,7 @@ class ShortUrlControllerTest {
 
     @MockitoBean
     private IdempotentUrlCreationService idempotentUrlCreationService;
+
 
     @Test
     void createsShortUrl() throws Exception {
