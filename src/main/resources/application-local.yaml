@@ -1,0 +1,12 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    root: INFO
+    com.yesh6.agenticshortener: DEBUG
+
+server:
+  port: 8082

@@ -2,17 +2,54 @@ spring:
   application:
     name: agentic-url-shortener
 
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
-      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/agentic_shortener}
+    username: ${SPRING_DATASOURCE_USERNAME:agentic_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:agentic_local_password}
+    driver-class-name: org.postgresql.Driver
+
+    hikari:
+      pool-name: agentic-shortener-pool
+      minimum-idle: 2
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      validation-timeout: 5000
+
+  jpa:
+    open-in-view: false
+
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    validate-migration-naming: true
+    clean-disabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+
+  metrics:
+    tags:
+      application: ${spring.application.name}

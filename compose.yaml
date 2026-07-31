@@ -1,0 +1,31 @@
+name: agentic-url-shortener
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentic-shortener-postgres
+
+    environment:
+      POSTGRES_DB: agentic_shortener
+      POSTGRES_USER: agentic_app
+      POSTGRES_PASSWORD: agentic_local_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U agentic_app -d agentic_shortener
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
