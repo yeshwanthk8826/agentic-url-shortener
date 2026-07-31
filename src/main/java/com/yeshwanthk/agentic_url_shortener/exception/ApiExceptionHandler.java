@@ -1,5 +1,8 @@
-package com.yeshwanthk.agentic_url_shortener.shared.exception;
+package com.yeshwanthk.agentic_url_shortener.exception;
 
+import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencyConflictException;
+import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencyInProgressException;
+import com.yeshwanthk.agentic_url_shortener.idempotency.exception.IdempotencySerializationException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.InvalidUrlException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.ShortCodeGenerationException;
 import com.yeshwanthk.agentic_url_shortener.url.exception.ShortUrlNotFoundException;
@@ -129,5 +132,50 @@ public class ApiExceptionHandler {
         problem.setProperty("timestamp", Instant.now());
 
         return problem;
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ProblemDetail handleIdempotencyConflict(
+            IdempotencyConflictException exception,
+            HttpServletRequest request
+    ) {
+        return createProblem(
+                HttpStatus.CONFLICT,
+                "Idempotency key conflict",
+                exception.getMessage(),
+                "urn:problem:idempotency-conflict",
+                request
+        );
+    }
+
+    @ExceptionHandler(IdempotencyInProgressException.class)
+    public ProblemDetail handleIdempotencyInProgress(
+            IdempotencyInProgressException exception,
+            HttpServletRequest request
+    ) {
+        ProblemDetail problem = createProblem(
+                HttpStatus.CONFLICT,
+                "Idempotent request in progress",
+                exception.getMessage(),
+                "urn:problem:idempotency-in-progress",
+                request
+        );
+
+        problem.setProperty("retryable", true);
+        return problem;
+    }
+
+    @ExceptionHandler(IdempotencySerializationException.class)
+    public ProblemDetail handleIdempotencySerialization(
+            IdempotencySerializationException exception,
+            HttpServletRequest request
+    ) {
+        return createProblem(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Idempotency processing failed",
+                "The idempotent response could not be processed",
+                "urn:problem:idempotency-processing",
+                request
+        );
     }
 }
