@@ -1,1 +1,11 @@
-DataSourceAutoConfiguration
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    org.testcontainers: info
