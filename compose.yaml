@@ -1,9 +1,35 @@
-name: agentic-url-shortener
-
 services:
+  app:
+    profiles:
+      - app
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: agentic-url-shortener:local
+    container_name: agentic-url-shortener-app
+
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agentic_shortener
+      SPRING_DATASOURCE_USERNAME: agentic_app
+      SPRING_DATASOURCE_PASSWORD: agentic_local_password
+      PUBLIC_BASE_URL: http://localhost:8080
+      SERVER_PORT: 8080
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: unless-stopped
+
   postgres:
-    image: postgres:16-alpine
-    container_name: agentic-shortener-postgres
+    image: postgres:17
+    container_name: agentic-url-shortener-postgres
 
     environment:
       POSTGRES_DB: agentic_shortener
@@ -13,17 +39,16 @@ services:
     ports:
       - "5432:5432"
 
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test:
         - CMD-SHELL
         - pg_isready -U agentic_app -d agentic_shortener
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 5
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
     restart: unless-stopped
 
