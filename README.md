@@ -1,73 +1,153 @@
 # Agentic URL Shortener
 
-A production-oriented URL shortening service built with Java and Spring Boot.
+A production-oriented URL-shortening service and governed software-delivery
+workflow prototype built with Java, Spring Boot, and PostgreSQL.
 
-This service is also the foundation for a governed agentic software engineering
-system that will demonstrate requirement decomposition, controlled execution,
-validation, approval gates, auditability, and release readiness.
+The project demonstrates:
 
-## Current capabilities
+- Reliable URL creation and redirection
+- Durable request idempotency
+- Redirect analytics and cache-aside lookup
+- Observable production behavior
+- Stateful SDLC workflow orchestration
+- Human release approval
+- Safe-stop controls
+- Append-only audit history
+- Container packaging
+- GitHub Actions CI
 
-- Create shortened URLs
-- Generate secure eight-character Base62 short codes
-- Redirect short codes to original URLs
-- Retrieve shortened URL metadata
-- Configure optional expiration times
-- Validate HTTP and HTTPS URLs
-- Store application data in PostgreSQL
-- Manage database changes with Flyway
-- Enforce durable PostgreSQL-backed request idempotency
-- Detect idempotency-key reuse with a different request
-- Replay completed idempotent responses
-- Protect concurrent requests using atomic database reservations
-- Return RFC 9457 Problem Details error responses
-- Expose health, liveness, and readiness endpoints
-- Run PostgreSQL locally through Docker Compose
+For design details, see [Architecture](docs/architecture.md).
 
-## Technology stack
+## Features
+
+### URL shortener
+
+- Secure eight-character Base62 short codes
+- HTTP and HTTPS URL validation
+- Optional expiration
+- Redirect metadata
+- Redirect analytics
+- Atomic visit counters
+- Caffeine cache-aside redirect lookup
+- RFC 9457 Problem Details errors
+
+### Idempotency
+
+- Required `Idempotency-Key` header
+- PostgreSQL-backed durable request state
+- SHA-256 request fingerprints
+- Atomic request reservation
+- Completed-response replay
+- Payload-conflict detection
+- Failed-request recovery
+- Protection across application restarts and instances
+
+### Agentic SDLC orchestration
+
+- Persisted workflows and nodes
+- Explicit dependency graph
+- Sequential and parallel stages
+- Dependency synchronization
+- Dynamic downstream re-planning
+- Release-readiness approval gate
+- Human safe-stop control
+- Append-only audit events
+- Optimistic locking
+
+### Operations
+
+- PostgreSQL and Flyway migrations
+- Health, liveness, and readiness endpoints
+- Prometheus metrics
+- Correlation IDs
+- Multi-stage non-root Docker image
+- Docker Compose
+- GitHub Actions test and container-build workflow
+
+## Technology
 
 - Java 21
 - Spring Boot 4
 - Spring Web MVC
 - Spring Data JPA
-- Spring Validation
 - Spring Security
 - PostgreSQL
 - Flyway
+- Caffeine
+- Micrometer and Prometheus
 - Maven
-- Docker Compose
-- JUnit 5
-- Mockito
+- JUnit 5 and Mockito
+- Docker and Docker Compose
+- GitHub Actions
 
 ## Project structure
 
 ```text
-src/main/java/com/yeshwanthk/agentic_url_shortener/
-|-- config/                 Application and security configuration
-|-- exception/              Centralized API exception handling
-|-- idempotency/
-|   |-- domain/             Idempotency entity and lifecycle status
-|   |-- dto/                Reservation and execution results
-|   |-- exception/          Conflict and processing exceptions
-|   |-- repository/         Durable PostgreSQL persistence
-|   `-- service/            Reservation, fingerprinting, and replay logic
-`-- url/
-    |-- controller/         HTTP API and redirect endpoints
-    |-- domain/             URL entity, status, and code generation
-    |-- dto/                API request and response models
-    |-- exception/          URL-specific exceptions
-    |-- repository/         PostgreSQL persistence
-    `-- service/            Application and business logic
+.
+|-- .github/workflows/
+|   `-- ci.yml
+|-- docs/
+|   `-- architecture.md
+|-- src/main/java/com/yeshwanthk/agentic_url_shortener/
+|   |-- config/
+|   |-- exception/
+|   |-- idempotency/
+|   |   |-- domain/
+|   |   |-- dto/
+|   |   |-- exception/
+|   |   |-- repository/
+|   |   `-- service/
+|   |-- observability/
+|   |-- orchestration/
+|   |   |-- controller/
+|   |   |-- domain/
+|   |   |-- dto/
+|   |   |-- exception/
+|   |   |-- repository/
+|   |   `-- service/
+|   `-- url/
+|       |-- cache/
+|       |-- controller/
+|       |-- domain/
+|       |-- dto/
+|       |-- exception/
+|       |-- repository/
+|       `-- service/
+|-- src/main/resources/db/migration/
+|-- src/test/
+|-- compose.yaml
+|-- Dockerfile
+`-- pom.xml
 ```
 
 ## API overview
 
+### URL APIs
+
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/urls` | Idempotently create a shortened URL |
+| `POST` | `/api/v1/urls` | Idempotently create a short URL |
 | `GET` | `/api/v1/urls/{shortCode}` | Retrieve URL metadata |
+| `GET` | `/api/v1/urls/{shortCode}/analytics` | Retrieve redirect analytics |
 | `GET` | `/{shortCode}` | Redirect to the original URL |
-| `GET` | `/actuator/health` | Application health status |
+
+### Workflow APIs
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/workflows` | Create an SDLC workflow |
+| `GET` | `/api/v1/workflows/{id}` | Retrieve workflow state |
+| `POST` | `/api/v1/workflows/{id}/advance` | Re-evaluate dependency gates |
+| `POST` | `/api/v1/workflows/{id}/nodes/{key}/complete` | Complete a workflow node |
+| `POST` | `/api/v1/workflows/{id}/replan` | Invalidate and re-plan downstream work |
+
+### Governance APIs
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/workflows/{id}/governance/approvals/release-readiness` | Approve release readiness |
+| `POST` | `/api/v1/workflows/{id}/governance/safe-stop` | Safe-stop a workflow |
+| `GET` | `/api/v1/workflows/{id}/governance/audit-events` | Retrieve audit history |
 
 ## Prerequisites
 
@@ -77,26 +157,19 @@ Install:
 - Docker Desktop
 - Git
 
-The Maven wrapper is included, so a separate Maven installation is not
-required.
+A separate Maven installation is unnecessary because the repository includes
+the Maven wrapper.
 
-## Local setup
+## Run locally
 
 ### 1. Start PostgreSQL
 
 ```powershell
 docker compose up -d postgres
-```
-
-Confirm that the container is healthy:
-
-```powershell
 docker compose ps
 ```
 
 ### 2. Configure the application
-
-The Docker Compose defaults can be used for local development:
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = "local"
@@ -106,114 +179,297 @@ $env:SPRING_DATASOURCE_PASSWORD = "agentic_local_password"
 $env:PUBLIC_BASE_URL = "http://localhost:8082"
 ```
 
-Do not commit production database passwords or other secrets.
+Do not commit production secrets.
 
-### 3. Run the application
+### 3. Start the application
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-The local profile runs the service at:
+Local URL:
 
 ```text
 http://localhost:8082
 ```
 
-## API usage
+## Run with Docker
 
-### Create a shortened URL
+Build the image:
 
-Creating a URL requires an `Idempotency-Key` header.
+```powershell
+docker build -t agentic-url-shortener:local .
+```
+
+Start the full stack:
+
+```powershell
+docker compose --profile app up -d --build
+docker compose --profile app ps
+```
+
+Container URL:
+
+```text
+http://localhost:8080
+```
+
+Check health:
+
+```powershell
+curl.exe -i http://localhost:8080/actuator/health
+```
+
+Stop the stack without deleting PostgreSQL data:
+
+```powershell
+docker compose --profile app down
+```
+
+## URL API examples
+
+### Create a short URL
+
+```powershell
+$key = "create-url-" + [guid]::NewGuid()
+
+curl.exe -i -X POST http://localhost:8082/api/v1/urls `
+  -H "Content-Type: application/json" `
+  -H "Idempotency-Key: $key" `
+  -d '{\"url\":\"https://example.com/products/123\",\"expiresAt\":null}'
+```
+
+Expected first response:
 
 ```http
-POST /api/v1/urls
-Idempotency-Key: create-product-url-123
-Content-Type: application/json
+HTTP/1.1 201 Created
+Idempotency-Replayed: false
+Location: http://localhost:8082/Ab12Cd34
 ```
 
-```json
-{
-  "url": "https://example.com/products/123",
-  "expiresAt": "2026-12-31T23:59:59Z"
-}
-```
+### Replay the request
 
-Example with cURL:
+Repeat the exact request with the same key:
 
 ```powershell
 curl.exe -i -X POST http://localhost:8082/api/v1/urls `
   -H "Content-Type: application/json" `
-  -H "Idempotency-Key: create-product-url-123" `
-  -d '{\"url\":\"https://example.com/products/123\",\"expiresAt\":\"2026-12-31T23:59:59Z\"}'
+  -H "Idempotency-Key: $key" `
+  -d '{\"url\":\"https://example.com/products/123\",\"expiresAt\":null}'
 ```
 
-First successful response:
+Expected:
 
 ```http
-HTTP/1.1 201 Created
-Location: http://localhost:8082/Ab12Cd34
-Idempotency-Replayed: false
-Content-Type: application/json
+HTTP/1.1 200 OK
+Idempotency-Replayed: true
 ```
+
+The stored resource ID and short code remain unchanged.
+
+### Test conflict protection
+
+Reuse the same key with a different URL:
+
+```powershell
+curl.exe -i -X POST http://localhost:8082/api/v1/urls `
+  -H "Content-Type: application/json" `
+  -H "Idempotency-Key: $key" `
+  -d '{\"url\":\"https://different.example.com\",\"expiresAt\":null}'
+```
+
+Expected:
+
+```http
+HTTP/1.1 409 Conflict
+```
+
+### Redirect
+
+```powershell
+curl.exe -i http://localhost:8082/Ab12Cd34
+```
+
+Expected:
+
+```http
+HTTP/1.1 302 Found
+Location: https://example.com/products/123
+```
+
+### Analytics
+
+```powershell
+curl.exe -i `
+  http://localhost:8082/api/v1/urls/Ab12Cd34/analytics
+```
+
+Example:
 
 ```json
 {
-  "id": "806304fb-dbd6-48ea-b728-cf60a3fe157c",
   "shortCode": "Ab12Cd34",
-  "shortUrl": "http://localhost:8082/Ab12Cd34",
-  "originalUrl": "https://example.com/products/123",
   "status": "ACTIVE",
+  "visitCount": 3,
   "createdAt": "2026-07-31T12:00:00Z",
-  "expiresAt": "2026-12-31T23:59:59Z"
-}
-```
-
-The ID, short code, and timestamps are generated by the service.
-
-The `expiresAt` field is optional:
-
-```json
-{
-  "url": "https://example.com/products/123",
+  "lastAccessedAt": "2026-07-31T12:05:00Z",
   "expiresAt": null
 }
 ```
 
-### Replay an idempotent request
+## Workflow example
 
-Repeat the same request with the same `Idempotency-Key` and payload:
+Create a workflow:
 
 ```powershell
-curl.exe -i -X POST http://localhost:8082/api/v1/urls `
-  -H "Content-Type: application/json" `
-  -H "Idempotency-Key: create-product-url-123" `
-  -d '{\"url\":\"https://example.com/products/123\",\"expiresAt\":\"2026-12-31T23:59:59Z\"}'
+$workflow = Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://localhost:8082/api/v1/workflows" `
+    -ContentType "application/json" `
+    -Body '{
+      "name": "URL analytics enhancement",
+      "requirement": "Add production redirect analytics",
+      "scenarioType": "BROWNFIELD"
+    }'
+
+$workflowId = $workflow.id
+
+$workflow.nodes |
+    Select-Object nodeKey, stage, status
 ```
 
-The service returns the original stored response:
+The initial graph contains:
+
+```text
+requirements       READY
+architecture       BLOCKED
+implementation     BLOCKED
+testing            BLOCKED
+documentation      BLOCKED
+release-readiness  BLOCKED
+```
+
+After implementation completes, testing and documentation become ready in
+parallel. Release readiness remains blocked until both finish and a human
+approval exists.
+
+Approve release readiness:
+
+```powershell
+Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://localhost:8082/api/v1/workflows/$workflowId/governance/approvals/release-readiness" `
+    -ContentType "application/json" `
+    -Body '{
+      "actor": "engineering-reviewer",
+      "reason": "Testing and documentation gates passed"
+    }'
+```
+
+Retrieve the audit trail:
+
+```powershell
+Invoke-RestMethod `
+    -Uri "http://localhost:8082/api/v1/workflows/$workflowId/governance/audit-events"
+```
+
+Safe-stop execution:
+
+```powershell
+Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://localhost:8082/api/v1/workflows/$workflowId/governance/safe-stop" `
+    -ContentType "application/json" `
+    -Body '{
+      "actor": "engineering-reviewer",
+      "reason": "Manual risk-control verification"
+    }'
+```
+
+Subsequent execution attempts return `409 Conflict`.
+
+## Idempotency contract
+
+| Situation | Result |
+|---|---|
+| New key and request | Create resource; return `201` |
+| Same key and payload | Replay response; return `200` |
+| Same key and different payload | Return `409` |
+| Same key while processing | Return retryable `409` |
+| Failed or expired incomplete record | Allow controlled retry |
+
+Idempotency records are persisted in PostgreSQL. Request fingerprints prevent
+the same key from representing different operations.
+
+## Observability
+
+### Health
+
+```text
+GET /actuator/health
+GET /actuator/health/liveness
+GET /actuator/health/readiness
+```
+
+### Prometheus
+
+```powershell
+curl.exe http://localhost:8082/actuator/prometheus
+```
+
+Application metrics include URL creation, redirect success/failure, and redirect
+duration.
+
+### Correlation IDs
+
+Clients may send:
 
 ```http
-HTTP/1.1 200 OK
-Location: http://localhost:8082/Ab12Cd34
-Idempotency-Replayed: true
+X-Correlation-ID: request-123
 ```
 
-The replay contains the same resource ID and short code. It does not create a
-second URL.
+Valid values are propagated to the response and logging context. Invalid values
+are replaced with generated UUIDs.
 
-### Idempotency-key conflict
+## Testing
 
-Reusing the same key with a different payload returns `409 Conflict`:
+Run all tests:
 
 ```powershell
-curl.exe -i -X POST http://localhost:8082/api/v1/urls `
-  -H "Content-Type: application/json" `
-  -H "Idempotency-Key: create-product-url-123" `
-  -d '{\"url\":\"https://different.example.com\",\"expiresAt\":null}'
+.\mvnw.cmd clean test
 ```
 
-Example response:
+Run the complete verification lifecycle:
+
+```powershell
+.\mvnw.cmd clean verify
+```
+
+The current tests cover core URL behavior, validation, redirect caching,
+analytics, observability, controller contracts, and application-context schema
+validation.
+
+## CI
+
+The GitHub Actions workflow runs on pushes and pull requests to `main`.
+
+It:
+
+1. Starts PostgreSQL.
+2. Configures Java 21.
+3. Runs `clean verify`.
+4. Uploads test reports and the application JAR.
+5. Builds the production Docker image.
+
+Workflow:
+
+```text
+.github/workflows/ci.yml
+```
+
+## Error format
+
+Errors use RFC 9457 Problem Details:
 
 ```json
 {
@@ -225,235 +481,34 @@ Example response:
 }
 ```
 
-### Retrieve URL metadata
+Stack traces and internal implementation details are not returned to clients.
 
-Replace the example short code with the returned value:
+## Security considerations
 
-```powershell
-curl.exe -i http://localhost:8082/api/v1/urls/Ab12Cd34
-```
-
-Successful response:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-```
-
-```json
-{
-  "id": "806304fb-dbd6-48ea-b728-cf60a3fe157c",
-  "shortCode": "Ab12Cd34",
-  "shortUrl": "http://localhost:8082/Ab12Cd34",
-  "originalUrl": "https://example.com/products/123",
-  "status": "ACTIVE",
-  "createdAt": "2026-07-31T12:00:00Z",
-  "expiresAt": "2026-12-31T23:59:59Z"
-}
-```
-
-### Redirect to the original URL
-
-```powershell
-curl.exe -i http://localhost:8082/Ab12Cd34
-```
-
-Expected response:
-
-```http
-HTTP/1.1 302 Found
-Location: https://example.com/products/123
-```
-
-Follow the redirect with:
-
-```powershell
-curl.exe -i -L http://localhost:8082/Ab12Cd34
-```
-
-## Idempotency behavior
-
-The service applies the following rules:
-
-| Situation | Result |
-|---|---|
-| New key and valid request | Create resource and return `201` |
-| Same key and same request | Replay stored response and return `200` |
-| Same key and different request | Return `409 Conflict` |
-| Same key while processing | Return retryable `409 Conflict` |
-| Previously failed request | Safely acquire the key for a retry |
-| Expired incomplete reservation | Safely acquire the key for a retry |
-
-Idempotency records are persisted in PostgreSQL, so replay and conflict
-protection work across application restarts and multiple service instances.
-
-The request payload is converted into a SHA-256 fingerprint. The original
-payload is not stored in the idempotency table.
-
-## URL validation
-
-The service:
-
-- Accepts only `http` and `https` URLs.
-- Requires a valid host.
-- Rejects URLs containing embedded credentials.
-- Rejects URLs longer than 2,048 characters.
-- Requires expiration timestamps to be in the future.
-- Requires short codes to contain exactly eight Base62 characters.
-- Requires a nonblank `Idempotency-Key` no longer than 128 characters.
-
-The original URL is preserved for redirect fidelity. A normalized URL is stored
-separately for future duplicate detection and request fingerprinting.
-
-## Error responses
-
-API errors use RFC 9457 Problem Details.
-
-Example invalid URL response:
-
-```json
-{
-  "type": "urn:problem:invalid-url",
-  "title": "Invalid URL",
-  "status": 400,
-  "detail": "Only HTTP and HTTPS URLs are supported",
-  "instance": "/api/v1/urls",
-  "timestamp": "2026-07-31T12:00:00Z"
-}
-```
-
-Nonexistent, expired, and disabled short URLs return:
-
-```http
-HTTP/1.1 404 Not Found
-```
-
-Example:
-
-```json
-{
-  "type": "urn:problem:short-url-not-found",
-  "title": "Short URL not found",
-  "status": 404,
-  "detail": "Short URL was not found or is no longer available: Zz99Yy88",
-  "instance": "/Zz99Yy88"
-}
-```
-
-## Testing
-
-Run all automated tests:
-
-```powershell
-.\mvnw.cmd clean test
-```
-
-The current test suite covers:
-
-- Application-context startup and schema validation
-- URL creation
-- URL normalization
-- Invalid URL schemes
-- Embedded credentials
-- Short-code redirects
-- Expired URLs
-- Request validation
-- Missing idempotency keys
-- New idempotent creation responses
-- Completed-response replay behavior
-- Problem Details responses
-
-Manual API testing can be performed using the cURL examples above.
-
-## Health endpoints
-
-Application health:
-
-```powershell
-curl.exe -i http://localhost:8082/actuator/health
-```
-
-Kubernetes-compatible probes:
-
-```text
-GET /actuator/health/liveness
-GET /actuator/health/readiness
-```
-
-## Design decisions
-
-### Secure short-code generation
-
-Short codes contain eight Base62 characters and are generated using
-`SecureRandom`. The application performs bounded collision checks, while the
-database unique constraint is the final data-integrity boundary.
-
-### Durable idempotency
-
-Idempotency records are stored in PostgreSQL rather than application memory.
-This provides consistent behavior across restarts and horizontally scaled
-instances.
-
-The reservation uses PostgreSQL `INSERT ... ON CONFLICT DO NOTHING`, making
-key acquisition atomic. Request fingerprints prevent a key from being reused
-with a different operation.
-
-Completed response bodies are stored for deterministic replay. In-progress and
-failed states support controlled recovery rather than creating duplicate
-resources.
-
-### Transaction boundaries
-
-Reservation uses an independent transaction so concurrent requests can observe
-processing ownership. URL creation and idempotency completion execute within a
-transactional workflow. Failed executions are marked separately so they can be
-retried safely.
-
-### URL expiration
-
-Expiration is evaluated using an injected UTC `Clock`. This prevents
-timezone-dependent behavior and makes expiration logic deterministic in tests.
-
-### Database migrations
-
-Flyway owns all schema changes. Hibernate validates the schema and does not
-create or update production tables automatically.
-
-### API errors
-
-The API uses stable Problem Details types instead of exposing stack traces or
-internal exception details to clients.
+- Only HTTP and HTTPS URLs are accepted.
+- URLs containing embedded credentials are rejected.
+- Request sizes and identifier lengths are validated.
+- Database credentials are environment-based.
+- Runtime containers use a non-root user.
+- Public endpoints should be protected by rate limiting and client quotas before
+  internet exposure.
+- Management endpoint exposure should be restricted at the network boundary.
 
 ## Current limitations
 
-- URL creation is currently public.
-- Rate limiting and client quotas are not implemented yet.
-- Redirect analytics are not implemented yet.
-- Automatic cleanup of expired idempotency records is not implemented yet.
-- The processing lease and completed-response retention currently share one
-  expiration period and should be separated for a larger production deployment.
-- The agentic SDLC orchestration layer is not implemented yet.
-- Custom aliases and administrative disable operations are not available.
-- A rare concurrent short-code collision may fail at the database constraint;
-  later reliability work can add transaction-level collision retries.
+- Authentication and client authorization are not implemented.
+- Rate limiting and quotas are not implemented.
+- Expired idempotency-record cleanup is not automated.
+- Processing lease and completed-response retention use the same expiration
+  model.
+- Automated workflow retries and compensating rollback execution are not
+  implemented.
+- Audit events currently cover key governance transitions, not every internal
+  state mutation.
+- Custom short aliases are not implemented.
+- The prototype uses deterministic workflow execution rather than external AI
+  model calls.
 
-## Planned increments
+## Further documentation
 
-1. Redirect analytics, caching, metrics, and structured logging
-2. Stateful dependency-graph orchestration
-3. Approval gates and policy enforcement
-4. Bounded retries, rollback, and safe-stop controls
-5. Audit events and reliability metrics
-6. Integration and concurrency testing
-7. Architecture and scenario documentation
-8. CI quality gates and container verification
-
-## Stop the local environment
-
-Stop the application using `Ctrl+C`, then stop PostgreSQL:
-
-```powershell
-docker compose down
-```
-
-The command above retains the PostgreSQL Docker volume.
+- [Architecture and engineering decisions](docs/architecture.md)
